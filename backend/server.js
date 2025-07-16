@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 4000;
 
 // Start the strategy engine
 startBinanceSocket();
-[150,500,1000].forEach(startRenkoEngine);
+[50,150,500,1000].forEach(startRenkoEngine);
 
 // Start the server
 app.listen(PORT, () => {
