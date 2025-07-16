@@ -3,12 +3,13 @@ import WebSocket from 'ws';
 import { updatePrice } from './renkoEngine.js';
 
 export function startBinanceSocket() {
-  const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@aggTrade', {
-  headers: {
-    'User-Agent': 'Mozilla/5.0',  // Very important
-    'Origin': 'https://render.com' // Helps with 451 sometimes
-  }
-});
+  const ws = new WebSocket('wss://stream.socketproxy.io/btcusdt@aggTrade', {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+      'Origin': 'https://render.com'
+    }
+  });
+
 
   ws.on('open', () => {
     console.log(' Binance WebSocket connected');
