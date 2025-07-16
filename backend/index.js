@@ -1,19 +1,25 @@
+// backend/index.js
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 import { connectDB } from "./config/db.js";
 import strategyRoutes from "./routes/strategyRoutes.js";
-import cors from "cors";
-app.use(cors()); // Allow all origins by default
 
 dotenv.config();
+
 const app = express();
 
+// ✅ Middleware first
+app.use(cors());
 app.use(express.json());
 
-// Connect DB
+// ✅ Connect DB
 connectDB();
 
-// API Routes
+// ✅ API Routes
 app.use("/api/v1/strategy", strategyRoutes);
+
+// ✅ Optional: health check
+app.get("/healthz", (req, res) => res.send("OK"));
 
 export default app;
