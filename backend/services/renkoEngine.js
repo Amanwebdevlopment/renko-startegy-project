@@ -4,7 +4,8 @@ import RenkoBrick from '../models/renkoModel.js';
 const engines = {};
 
 export function updatePrice(bid, ask) {
-  Object.values(engines).forEach(engine => engine.process(bid, ask));
+  const price = (bid + ask) / 2;
+  Object.values(engines).forEach(engine => engine.process(price));
 }
 
 export function startRenkoEngine(brickSize) {
@@ -17,8 +18,7 @@ export function startRenkoEngine(brickSize) {
   let reversalCount = 0;
 
   engines[brickSize] = {
-    process(bid, ask) {
-      const price = (bid + ask) / 2;
+    process(price) {
       const rounded = Math.floor(price / brickSize) * brickSize;
 
       if (lastBrickPrice === null) {
@@ -41,17 +41,14 @@ export function startRenkoEngine(brickSize) {
           storeBrick(lastBrickPrice, color, brickSize);
 
           if (newTrend === currentTrend) {
-            // Same trend → normal continuation
             reversalCount = 0;
-            handleTrade(lastBrickPrice, color, brickSize);
+            handleTrade(lastBrickPrice, color, brickSize); // Continue trade
           } else {
-            // Reversal detected
-            reversalCount++;
+            reversalCount++; // Wait for 2 opposite bricks
             if (reversalCount >= 2) {
-              // Confirm reversal after 2 bricks
               currentTrend = newTrend;
+              handleTrade(lastBrickPrice, color, brickSize); // Confirm reversal
               reversalCount = 0;
-              handleTrade(lastBrickPrice, color, brickSize);
             }
           }
         }
@@ -69,33 +66,38 @@ export function startRenkoEngine(brickSize) {
     const feeRate = 0.001;
 
     if (!position) {
+      // First position, just open
       position = { side, price };
       return;
     }
 
-    if (position.side !== side) {
-      const entry = position.price;
-      const exit = price;
-      const gross = position.side === 'buy' ? exit - entry : entry - exit;
-      const fee = (entry + exit) * feeRate;
-      const net = gross - fee;
-      totalProfit += net;
-
-      const trade = new Trade({
-        entryPrice: entry,
-        exitPrice: exit,
-        side: position.side,
-        grossProfit: gross,
-        fee,
-        netProfit: net,
-        brickSize,
-      });
-
-      trade.save().catch(console.error);
+    if (position.side === side) {
+      // Same direction, update the price
+      position.price = price;
+      return;
     }
 
-    // Set new position
+    // Now confirmed reversal — close existing position and open new
+    const entry = position.price;
+    const exit = price;
+    const gross = position.side === 'buy' ? exit - entry : entry - exit;
+    const fee = (entry + exit) * feeRate;
+    const net = gross - fee;
+    totalProfit += net;
+
+    const trade = new Trade({
+      entryPrice: entry,
+      exitPrice: exit,
+      side: position.side,
+      grossProfit: gross,
+      fee,
+      netProfit: net,
+      brickSize,
+    });
+
+    trade.save().catch(console.error);
+
+    // Open opposite direction
     position = { side, price };
   }
 }
-

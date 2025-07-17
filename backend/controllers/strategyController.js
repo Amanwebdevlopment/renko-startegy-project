@@ -14,9 +14,27 @@ export const getTrades = async (req, res) => {
 
 
 export const getBricks = async (req, res) => {
-  const bricks = await RenkoBrick.find().sort({ timestamp: -1 }).limit(100);
-  res.json(bricks);
+  try {
+    // Find all distinct brick sizes saved in DB
+    const brickSizes = await RenkoBrick.distinct('brickSize');
+
+    const result = {};
+
+    // For each brick size, fetch latest 100 bricks
+    for (const size of brickSizes) {
+      const bricks = await RenkoBrick.find({ brickSize: size })
+        .sort({ timestamp: -1 })
+        .limit(100);
+      result[size] = bricks;
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error fetching bricks' });
+  }
 };
+
 
 export const getStats = async (req, res) => {
   try {
@@ -70,7 +88,7 @@ export const getStats = async (req, res) => {
     res.json(summaryArray);
 
   } catch (error) {
-    console.error('❌ Trade stats error:', error);
+    console.error(' Trade stats error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
