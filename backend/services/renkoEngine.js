@@ -13,15 +13,18 @@ export function startRenkoEngine(brickSize) {
   let lastBrickPrice = null;
   let position = null;
   let totalProfit = 0;
+  let currentTrend = null; // 'up' or 'down'
+  let reversalCount = 0;
 
   engines[brickSize] = {
     process(bid, ask) {
-      const price = (bid + ask) / 2; // Mid price
+      const price = (bid + ask) / 2;
       const rounded = Math.floor(price / brickSize) * brickSize;
 
       if (lastBrickPrice === null) {
         lastBrickPrice = rounded;
         storeBrick(lastBrickPrice, 'green', brickSize);
+        currentTrend = 'up';
         return;
       }
 
@@ -30,11 +33,27 @@ export function startRenkoEngine(brickSize) {
 
       if (bricksToAdd >= 1) {
         const direction = Math.sign(diff);
+        const newTrend = direction > 0 ? 'up' : 'down';
+
         for (let i = 1; i <= bricksToAdd; i++) {
           lastBrickPrice += brickSize * direction;
           const color = direction > 0 ? 'green' : 'red';
           storeBrick(lastBrickPrice, color, brickSize);
-          handleTrade(lastBrickPrice, color, brickSize);
+
+          if (newTrend === currentTrend) {
+            // Same trend → normal continuation
+            reversalCount = 0;
+            handleTrade(lastBrickPrice, color, brickSize);
+          } else {
+            // Reversal detected
+            reversalCount++;
+            if (reversalCount >= 2) {
+              // Confirm reversal after 2 bricks
+              currentTrend = newTrend;
+              reversalCount = 0;
+              handleTrade(lastBrickPrice, color, brickSize);
+            }
+          }
         }
       }
     },
@@ -47,7 +66,7 @@ export function startRenkoEngine(brickSize) {
 
   function handleTrade(price, color, brickSize) {
     const side = color === 'green' ? 'buy' : 'sell';
-    const feeRate = 0.001; // 0.1%
+    const feeRate = 0.001;
 
     if (!position) {
       position = { side, price };
@@ -58,10 +77,8 @@ export function startRenkoEngine(brickSize) {
       const entry = position.price;
       const exit = price;
       const gross = position.side === 'buy' ? exit - entry : entry - exit;
-
       const fee = (entry + exit) * feeRate;
       const net = gross - fee;
-
       totalProfit += net;
 
       const trade = new Trade({
@@ -75,7 +92,10 @@ export function startRenkoEngine(brickSize) {
       });
 
       trade.save().catch(console.error);
-      position = { side, price };
     }
+
+    // Set new position
+    position = { side, price };
   }
 }
+

@@ -19,29 +19,62 @@ export const getBricks = async (req, res) => {
 };
 
 export const getStats = async (req, res) => {
-  const trades = await Trade.find();
-  const total = trades.length;
-  const profitable = trades.filter(t => t.netProfit > 0).length;
-  const totalNet = trades.reduce((acc, t) => acc + t.netProfit, 0);
-  const brickStats = {};
+  try {
+    const trades = await Trade.find();
 
-  for (const t of trades) {
-    const key = t.brickSize;
-    if (!brickStats[key]) {
-      brickStats[key] = { count: 0, net: 0 };
-    }
-    brickStats[key].count++;
-    brickStats[key].net += t.netProfit;
+    const summaryMap = {};
+
+    for (const trade of trades) {
+  const size = trade.brickSize;
+
+  if (!summaryMap[size]) {
+    summaryMap[size] = {
+      brickSize: size,
+      totalTrades: 0,
+      winTrades: 0,
+      lossTrades: 0,
+      totalGrossProfit: 0,
+      totalFee: 0,
+      finalProfit: 0,
+      maxProfit: -Infinity,
+      maxLoss: Infinity,
+    };
   }
 
-  res.json({
-    totalTrades: total,
-    profitableTrades: profitable,
-    winRate: total > 0 ? (profitable / total * 100).toFixed(2) + "%" : "0%",
-    totalNetProfit: totalNet.toFixed(2),
-    brickPerformance: brickStats
-  });
+  const stats = summaryMap[size];
+
+  stats.totalTrades += 1;
+  stats.totalGrossProfit += trade.grossProfit;
+  stats.totalFee += trade.fee;
+  stats.finalProfit += trade.netProfit;
+
+  if (trade.netProfit >= 0) {
+    stats.winTrades += 1;
+  } else {
+    stats.lossTrades += 1;
+  }
+
+  // ✅ Fix here
+  if (trade.grossProfit > stats.maxProfit) {
+    stats.maxProfit = trade.grossProfit;
+  }
+
+  if (trade.grossProfit < stats.maxLoss) {
+    stats.maxLoss = trade.grossProfit;
+  }
+}
+
+
+    const summaryArray = Object.values(summaryMap).sort((a, b) => a.brickSize - b.brickSize);
+
+    res.json(summaryArray);
+
+  } catch (error) {
+    console.error('❌ Trade stats error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 };
+
 // delete data single or multiple both
 export const deleteTrades = async (req, res) => {
   try {
